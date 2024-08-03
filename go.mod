@@ -1,4 +1,4 @@
-module github.com/savabush/restApiTest
+module github.com/savabush/gogint
 
 go 1.21.6
 

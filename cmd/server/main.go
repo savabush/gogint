@@ -2,7 +2,7 @@ package main
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/savabush/restApiTest/internal/config"
+	"github.com/savabush/gogint/internal/config"
 	"log"
 	"net/http"
 )
