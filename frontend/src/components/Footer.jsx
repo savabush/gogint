@@ -7,9 +7,9 @@ function Footer(props) {
     const { t } = useTranslation();
     return (
         <div>
-            <hr className="mt-5 border-gray-700"></hr>
+            <hr className="mt-5 border-blue-800"></hr>
             <div className="h-[100px] flex items-center justify-center">
-                <ul className="flex gap-20 opacity-40">
+                <ul className="flex gap-16 opacity-40 px-8">
                     <Links />
                 </ul>
             </div>

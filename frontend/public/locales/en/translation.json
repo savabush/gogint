@@ -5,5 +5,11 @@
   "search": "search everything",
   "contact me": "contact me",
   "curriculum vitae": "curriculum vitae",
-  "popularPosts": "popular posts"
+  "popularPosts": "popular posts",
+  "notFound": "not found",
+  "created desc": "by time created descending",
+  "created asc": "by time created ascending",
+  "title desc": "by title descending",
+  "title asc": "by title ascending",
+  "sort by": "sort by"
 }

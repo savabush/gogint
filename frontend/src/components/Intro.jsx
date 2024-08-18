@@ -26,25 +26,25 @@ function Intro(props) {
     return (
         <div>
             <ul className="flex justify-evenly mt-10 items-center flex-wrap">
-                <img className="rounded-full w-80 mb-3 mx-8" src="https://avatars.githubusercontent.com/u/87959063?v=4"
+                <img className="rounded-full w-80 mb-5 mx-8" src="https://avatars.githubusercontent.com/u/87959063?v=4"
                      alt="My Picture"/>
-                <ul className="mx-8 flex flex-col items-center">
+                <ul className="mx-[5%] flex flex-col items-center">
                     <li>
                         <ul className="flex-col">
-                            <li><p className="text-4xl">{data.name}</p></li>
+                            <li><p className="text-5xl">{data.name}</p></li>
                             <li><span
-                                className="mt-4 opacity-40">{data.profession}</span>
+                                className="mt-4 opacity-40 text-2xl">{data.profession}</span>
                             </li>
                             <li className="break-words text-wrap"><span
-                                className="mt-4">{data.about}</span>
+                                className="mt-4 text-2xl">{data.about}</span>
                             </li>
                         </ul>
                     </li>
 
                     <li className="justify-center">
                         <ul className="flex gap-8">
-                            <li><a href="https://t.me/sava_dev" className="text-white hover:font-JetBrainsMonoExtraBold hover:text-white no-underline"><button className="text-1xl rounded-full px-2 py-1 mt-12">{t("contact me")}</button></a></li>
-                            <li><button className="text-1xl rounded-full px-4 py-1 mt-12 hover:font-JetBrainsMonoExtraBold">{t("curriculum vitae")}</button></li>
+                            <li><a href="https://t.me/sava_dev" className="text-white hover:font-JetBrainsMonoExtraBold hover:text-white no-underline"><button className="text-2xl rounded-full px-4 py-1 mt-12">{t("contact me")}</button></a></li>
+                            <li><button className="text-2xl rounded-full px-4 py-1 mt-12 hover:font-JetBrainsMonoExtraBold">{t("curriculum vitae")}</button></li>
                         </ul>
                     </li>
                 </ul>

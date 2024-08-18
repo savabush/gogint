@@ -1,8 +1,6 @@
 import React from 'react';
 
-function Posts(props) {
-
-    const isPopular = props.isPopular;
+function Articles(props) {
 
     const data = {
         "result": [
@@ -69,49 +67,21 @@ function Posts(props) {
         ]
     }
 
-    const results = isPopular ? data.result.slice(0, 4) : data.result;
 
-    if (isPopular) {
-        return (
-            <div>
-                <ul className="flex flex-wrap justify-center">
-                    {results.map((item) => (
-                        <div key={item.id} className="items-center flex flex-col p-8">
-                            <a href="#"><img
-                                className="w-[350px] rounded-2xl mb-2" src={item.img}
-                                alt={item.name.toLowerCase()}/></a>
-                            <p><a href="#"
-                                  className="hover:font-JetBrainsMonoExtraBold text-white text-3xl">{item.name.toLowerCase()}</a>
-                            </p>
-                            <span
-                                className="max-w-[350px] max-h-[200px] line-clamp-6 text-lg">{item.summary.toLowerCase()}</span>
-                        </div>
-                    ))}
-                </ul>
-            </div>
-        );
-    } else {
-
-        return (
-            <div>
-                <ul className="flex flex-wrap justify-center">
-                    {results.map((item) => (
-                        <div key={item.id} className="items-center flex flex-col p-8">
-                            <a href="#"><img
-                                className="w-[350px] rounded-2xl mb-2" src={item.img}
-                                alt={item.name.toLowerCase()}/></a>
-                            <p><a href="#"
-                                  className="hover:font-JetBrainsMonoExtraBold text-white text-3xl">{item.name.toLowerCase()}</a>
-                            </p>
-                            <span
-                                className="max-w-[350px] max-h-[200px] line-clamp-6 text-lg">{item.summary.toLowerCase()}</span>
-                        </div>
-                    ))}
-                </ul>
-            </div>
-        );
-    }
-
+    return (
+        <div>
+            <ul className="flex flex-wrap justify-center">
+                {data.result.map((item) => (
+                    <div key={item.id} className="items-center flex flex-col p-8">
+                        <a href="#"><img
+                            className="w-[350px] rounded-2xl mb-2" src={item.img} alt={item.name.toLowerCase()}/></a>
+                            <p><a href="#" className="hover:font-JetBrainsMonoExtraBold text-white text-3xl">{item.name.toLowerCase()}</a></p>
+                        <span className="max-w-[350px] max-h-[200px] line-clamp-6 text-lg">{item.summary.toLowerCase()}</span>
+                    </div>
+                ))}
+            </ul>
+        </div>
+    );
 }
 
-export default Posts;
+export default Articles;
