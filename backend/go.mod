@@ -1,4 +1,4 @@
-module github.com/savabush/gogint
+module github.com/savabush/blog
 
 go 1.21.6
 

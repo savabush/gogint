@@ -1,13 +1,13 @@
-build-server:
-	go build -o youtubes-server cmd/cli/main.go
+go-build-server:
+	go build -o blog-server cmd/cli/main.go
 
-build-cli:
-	go build -o youtubes-cli cmd/server/main.go
+go-build-cli:
+	go build -o blog-cli cmd/server/main.go
 
-run-cli:
+go-run-cli:
 	go run cmd/cli/main.go
 
-run-server:
+go-run-server:
 	go run cmd/server/main.go
 
 drestart:

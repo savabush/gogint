@@ -2,7 +2,7 @@ package db
 
 import (
 	"fmt"
-	"github.com/savabush/restApiTest/internal/config"
+	"github.com/savabush/blog/internal/config"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 	"log"

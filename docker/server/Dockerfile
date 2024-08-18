@@ -9,7 +9,7 @@ RUN go mod download
 COPY cmd/server/*.go ./
 COPY internal ./
 
-RUN CGO_ENABLED=0 GOOS=linux go build -o /youtubes-server
+RUN CGO_ENABLED=0 GOOS=linux go build -o /blog-server
 
 RUN rm -rf /app
 
