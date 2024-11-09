@@ -6,7 +6,9 @@ import Header from "./components/Header.jsx";
 import React from "react";
 import Footer from "./components/Footer.jsx";
 import PostsPage from "./pages/PostsPage.jsx";
+import PostPage from "./pages/PostPage.jsx";
 import ArticlesPage from "./pages/ArticlesPage.jsx";
+import ArticlePage from "./pages/ArticlePage.jsx";
 
 const router = createBrowserRouter([
     {
@@ -18,8 +20,16 @@ const router = createBrowserRouter([
         element: <PostsPage />,
     },
     {
+        path: "/posts/:id",
+        element: <PostPage />,
+    },
+    {
         path: "/articles",
         element: <ArticlesPage />,
+    },
+    {
+        path: "/articles/:id",
+        element: <ArticlePage />,
     },
     {
         path: "*",

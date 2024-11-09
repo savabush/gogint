@@ -16,7 +16,7 @@ function Links(props) {
                 </a>
             </li>
             <li>
-                <a href="https://www.instagram.com/savabush/" target="_blank" rel="noreferrer"
+                <a href="https://www.instagram.com/sssava.b/" target="_blank" rel="noreferrer"
                    className="icon-link">
                     <img src="https://img.icons8.com/fluency-systems-filled/96/000000/instagram-new.png"
                          alt="Instagram Icon" className="icon w-12"/>

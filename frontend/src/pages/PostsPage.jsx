@@ -1,7 +1,7 @@
 import React from 'react';
 import Intro from "../components/Intro.jsx";
 import Search from "../components/Search.jsx";
-import Posts from "../components/Posts.jsx";
+import Posts from "../components/Post/Posts.jsx";
 import {useTranslation} from "react-i18next";
 import Sort from "../components/Sort.jsx";
 

@@ -2,7 +2,7 @@ import React from 'react';
 import Search from "../components/Search.jsx";
 import {useTranslation} from "react-i18next";
 import Sort from "../components/Sort.jsx";
-import Articles from "../components/Articles.jsx";
+import Articles from "../components/Article/Articles.jsx";
 
 function ArticlesPage() {
 

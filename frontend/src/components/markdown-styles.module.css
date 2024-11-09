@@ -1,0 +1,20 @@
+.reactMarkDown {
+    font-weight: 100;
+    white-space: pre-wrap;
+
+}
+
+.reactMarkDown ul {
+    list-style: disc outside none;
+}
+
+.reactMarkDown ul li {
+    margin-left: 3em;
+    display: list-item;
+    text-align: -webkit-match-parent;
+}
+
+.reactMarkDown p {
+    font-weight: 200;
+    white-space: pre-wrap;
+}
