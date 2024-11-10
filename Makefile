@@ -1,17 +1,5 @@
-go-build-server:
-	go build -o blog-server cmd/cli/main.go
-
-go-build-cli:
-	go build -o blog-cli cmd/server/main.go
-
-go-run-cli:
-	go run cmd/cli/main.go
-
-go-run-server:
-	go run cmd/server/main.go
-
 drestart:
-	docker compose down && docker compose up -d --build
+	docker compose down && BUILDKIT_PROGRESS=plain docker compose build --no-cache && docker compose up -d
 
 dlogs:
 	docker compose logs -f
@@ -20,10 +8,16 @@ ddown:
 	docker compose down
 
 dup:
-	docker compose up -d
+	docker compose up
+
+dupb:
+	BUILDKIT_PROGRESS=plain docker compose build --no-cache && docker compose up
 
 dupd:
-	docker compose up -d --build
+	docker compose up -d
+
+dupdb:
+	BUILDKIT_PROGRESS=plain docker compose build --no-cache && docker compose up -d
 
 dps:
 	docker compose ps
