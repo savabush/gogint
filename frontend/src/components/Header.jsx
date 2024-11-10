@@ -1,7 +1,6 @@
 import React from 'react';
 import {supportedLngs} from "../i18n/Config.jsx";
 import {useTranslation} from "react-i18next";
-import Search from "./Search.jsx";
 import Links from "./Links.jsx";
 
 function Header(props) {

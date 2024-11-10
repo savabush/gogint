@@ -1,4 +1,6 @@
 .env
 main
-blog-server
 .idea
+obsidian
+logs
+*.log
