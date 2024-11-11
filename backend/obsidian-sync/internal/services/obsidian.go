@@ -1,6 +1,9 @@
 package obsidian
 
 import (
+	"encoding/hex"
+	"hash/md5"
+	"io"
 	"os"
 	"strings"
 
@@ -8,7 +11,7 @@ import (
 )
 
 func RemoveUselessDirs() {
-	Logger.Println("Remove useless dirs")
+	Logger.Info("Remove useless dirs")
 	entries, err := os.ReadDir("obsidian")
 	if err != nil {
 		Logger.Fatal(err)
@@ -28,19 +31,19 @@ func RemoveUselessDirs() {
 	if countDirs == 0 {
 		panic("All dirs are removed, check git repository")
 	}
-	Logger.Println("Remove useless dirs done")
+	Logger.Info("Remove useless dirs done")
 
 }
 
 func RemoveObsidianDirIfExists() {
-	Logger.Println("Check existing obsidian folder")
+	Logger.Info("Check existing obsidian folder")
 	if _, err := os.Stat("obsidian"); err == nil {
 		if os.IsNotExist(err) {
 			if err != nil {
 				Logger.Fatal(err)
 			}
 		} else {
-			Logger.Println("Remove existing obsidian folder")
+			Logger.Info("Remove existing obsidian folder")
 			err := os.RemoveAll("obsidian")
 			if err != nil {
 				Logger.Fatal(err)
@@ -49,4 +52,21 @@ func RemoveObsidianDirIfExists() {
 		}
 	}
 
+}
+
+func GetFileMD5(filepath string) (string, error) {
+
+	file, err := os.Open(filepath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	h := md5.New()
+	if _, err := io.Copy(h, file); err != nil {
+		return "", err
+	}
+	md5Checksum := hex.EncodeToString(h.Sum(nil))
+	Logger.Infof("MD5: ", md5Checksum)
+	return md5Checksum, nil
 }
