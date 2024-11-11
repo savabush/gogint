@@ -10,13 +10,13 @@ import (
 func main() {
 	ticker := time.NewTicker(time.Duration(Settings.APP.SCHEDULE) * time.Minute)
 	quit := make(chan struct{})
-	Logger.Printf("Starting obsidian-sync scheduler. Starts every %v minutes", Settings.APP.SCHEDULE)
+	Logger.Infof("Starting obsidian-sync scheduler. Starts every %v minutes", Settings.APP.SCHEDULE)
 	for {
 		select {
 		case <-ticker.C:
 			App()
 		case <-quit:
-			Logger.Println("Stopping obsidian-sync scheduler")
+			Logger.Info("Stopping obsidian-sync scheduler")
 			ticker.Stop()
 			return
 		}
