@@ -4,3 +4,4 @@ main
 obsidian
 logs
 *.log
+coverage.txt
