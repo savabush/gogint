@@ -17,13 +17,13 @@ jobs:
       - name: Set up Go
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.22.3"
 
       - name: Install dependencies
         run: go mod download
 
       - name: Run tests for obsydian-sync with coverage
-        run: go test -v -race -coverprofile=coverage.txt -covermode=atomic ./backend/obsidian-sync/...
+        run: go test -v -race -coverprofile=./backend/obsidian-sync/coverage.txt -covermode=atomic ./backend/obsidian-sync/...
 
       - name: Upload coverage for obsydian-sync to Codecov
         uses: codecov/codecov-action@v5
