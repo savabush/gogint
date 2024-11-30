@@ -1,5 +1,5 @@
 # Obsidian Sync
-[![Go Coverage](https://codecov.io/gh/savabush/obsidian-sync/branch/main/graph/badge.svg)](https://codecov.io/gh/savabush/gogint)
+[![Go Coverage](https://codecov.io/github/savabush/gogint/graph/badge.svg?token=E2SK10LKIE)](https://codecov.io/github/savabush/gogint)
 
 A service for synchronizing Obsidian notes with MinIO storage.
 
@@ -74,6 +74,40 @@ The main application (`app.go`) handles:
 - Git repository cloning
 - File synchronization between Git and MinIO
 - Directory structure management
+
+## CI/CD Workflows
+
+The project uses GitHub Actions for continuous integration and deployment. The following workflows are available:
+
+### Test and Coverage
+- **Trigger**: On push/PR to main
+- Runs tests with race detection
+- Generates and uploads coverage reports
+- View coverage at [Codecov](https://codecov.io/gh/savabush/gogint)
+
+### Linting
+- **Trigger**: On push/PR to main
+- Uses golangci-lint
+- Enforces code style and best practices
+- 5-minute timeout for large codebases
+
+### Security Scanning
+- **Trigger**: On push/PR to main, weekly cron
+- Runs Gosec for security vulnerabilities
+- Scans dependencies with Nancy
+- Checks for high-severity issues with Snyk
+
+### Release
+- **Trigger**: On version tags (v*)
+- Uses GoReleaser for binary creation
+- Creates GitHub releases
+- Uploads build artifacts
+
+### Docker
+- **Trigger**: On push/PR to main, version tags
+- Builds multi-arch images (amd64, arm64)
+- Pushes to GitHub Container Registry
+- Tags images based on git refs
 
 ## Development
 
