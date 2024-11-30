@@ -1,8 +1,8 @@
 package obsidian
 
 import (
+	"crypto/md5"
 	"encoding/hex"
-	"hash/md5"
 	"io"
 	"os"
 	"strings"
@@ -10,6 +10,16 @@ import (
 	. "github.com/savabush/obsidian-sync/internal/config"
 )
 
+// RemoveUselessDirs removes directories from the "obsidian" folder that don't start with "06" or "05".
+// It logs the process, handles errors, and ensures that not all directories are removed.
+//
+// The function performs the following steps:
+// 1. Reads the contents of the "obsidian" directory.
+// 2. Iterates through each entry, removing directories that don't match the criteria.
+// 3. Keeps a count of remaining directories.
+// 4. Panics if all directories are removed, as a safeguard.
+//
+// Errors during directory reading or removal are logged as fatal.
 func RemoveUselessDirs() {
 	Logger.Info("Remove useless dirs")
 	entries, err := os.ReadDir("obsidian")
@@ -32,9 +42,15 @@ func RemoveUselessDirs() {
 		panic("All dirs are removed, check git repository")
 	}
 	Logger.Info("Remove useless dirs done")
-
 }
 
+// RemoveObsidianDirIfExists checks for the existence of the "obsidian" folder
+// and removes it if it exists. It logs the process and handles any errors.
+//
+// The function performs the following steps:
+// 1. Checks if the "obsidian" folder exists.
+// 2. If it exists, removes the folder and its contents.
+// 3. Logs fatal errors if any occur during the process.
 func RemoveObsidianDirIfExists() {
 	Logger.Info("Check existing obsidian folder")
 	if _, err := os.Stat("obsidian"); err == nil {
@@ -48,14 +64,26 @@ func RemoveObsidianDirIfExists() {
 			if err != nil {
 				Logger.Fatal(err)
 			}
-
 		}
 	}
-
 }
 
+// GetFileMD5 calculates the MD5 checksum of a file given its filepath.
+//
+// Parameters:
+//   - filepath: The path to the file for which to calculate the MD5 checksum.
+//
+// Returns:
+//   - string: The MD5 checksum of the file as a hexadecimal string.
+//   - error: An error if any occurred during the process, nil otherwise.
+//
+// The function performs the following steps:
+// 1. Opens the file specified by the filepath.
+// 2. Calculates the MD5 hash of the file contents.
+// 3. Converts the hash to a hexadecimal string.
+// 4. Logs the calculated MD5 checksum.
+// 5. Returns the MD5 checksum and any error encountered.
 func GetFileMD5(filepath string) (string, error) {
-
 	file, err := os.Open(filepath)
 	if err != nil {
 		return "", err

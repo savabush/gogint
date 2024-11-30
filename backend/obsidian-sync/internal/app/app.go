@@ -12,12 +12,24 @@ import (
 	. "github.com/savabush/obsidian-sync/internal/services"
 )
 
+// App is the main function of the obsidian-sync application.
+// It performs the following steps:
+// 1. Initializes a MinIO client
+// 2. Sets up SSH authentication for Git
+// 3. Clones the Obsidian repository
+// 4. Removes unnecessary directories
+// 5. Uploads files to MinIO buckets based on directory structure
+//
+// The function uses various helper functions and services defined elsewhere
+// in the application, such as NewMinio(), RemoveObsidianDirIfExists(),
+// and RemoveUselessDirs().
+//
+// It also handles logging and error management throughout the process.
 func App() {
-
 	start := time.Now()
 
+	// TODO: Rewrite creating instance of minio to from Repository
 	minioClient := NewMinio()
-
 	Logger.Infof("Starting obsidian-sync. Time start: %v", start)
 
 	Logger.Info("Getting auth method SSH agent")
@@ -27,7 +39,6 @@ func App() {
 	}
 
 	publicKeys, err := ssh.NewPublicKeysFromFile("git", Settings.GIT.CERT_PATH, "")
-
 	if err != nil {
 		Logger.Fatal(err)
 	}
@@ -81,11 +92,8 @@ func App() {
 				bucketName = strings.ToLower(strings.Split(entry.Name(), " - ")[1])
 			}
 
-			// Additional check for naming of directories
 			switch entry.Name() {
-			case Articles:
-				minioClient.UploadFiles(bucketName, "obsidian/"+entry.Name())
-			case Blog:
+			case Articles, Blog:
 				minioClient.UploadFiles(bucketName, "obsidian/"+entry.Name())
 			}
 		}

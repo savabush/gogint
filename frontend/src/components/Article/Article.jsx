@@ -30,7 +30,6 @@ function Article(props) {
 
 ![[Pasted image 20241108201200.png]]
 
-TODO: Описать словами
 ## Примечания
 
 Пока пусто

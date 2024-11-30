@@ -22,6 +22,16 @@ var levelList = []string{
 	"TRACE",
 }
 
+// Format implements the logrus.Formatter interface.
+// It formats log entries with the following pattern:
+// "timestamp - filename - [line:number] - LEVEL - message"
+//
+// Parameters:
+//   - entry: A pointer to the logrus.Entry to be formatted
+//
+// Returns:
+//   - []byte: The formatted log entry as a byte slice
+//   - error: Any error encountered during formatting (always nil in this implementation)
 func (mf *MyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	var b *bytes.Buffer
 	if entry.Buffer != nil {
@@ -38,6 +48,18 @@ func (mf *MyFormatter) Format(entry *logrus.Entry) ([]byte, error) {
 	return b.Bytes(), nil
 }
 
+// MakeLogger creates and configures a new logrus.Logger instance.
+//
+// Parameters:
+//   - filename: The path to the log file where logs will be written.
+//   - display: A boolean flag indicating whether to display logs on stdout in addition to writing to file.
+//
+// Returns:
+//   - *logrus.Logger: A configured logger instance.
+//
+// The function creates a log file with the given filename (or opens it if it already exists),
+// sets up the logger to write to this file, and optionally to stdout as well.
+// It also configures the logger to use a custom formatter (MyFormatter) and to report the caller.
 func MakeLogger(filename string, display bool) *logrus.Logger {
 	f, err := os.OpenFile(filename, os.O_CREATE|os.O_RDWR|os.O_APPEND, 0644)
 	if err != nil {
