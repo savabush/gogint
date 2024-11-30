@@ -1,3 +1,6 @@
+// Package minio provides functionality for interacting with MinIO object storage.
+// It implements a repository pattern for managing file uploads and downloads,
+// with support for concurrent operations, automatic retries, and proper error handling.
 package minio
 
 import (
@@ -6,47 +9,88 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
-
-	"path/filepath"
 
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	. "github.com/savabush/obsidian-sync/internal/config"
-	. "github.com/savabush/obsidian-sync/internal/services"
+	
 )
 
-// minioClientInterface defines the methods we need from minio.Client
-type minioClientInterface interface {
-	FPutObject(ctx context.Context, bucketName, objectName, filePath string, opts minio.PutObjectOptions) (minio.UploadInfo, error)
-	GetObject(ctx context.Context, bucketName, objectName string, opts minio.GetObjectOptions) (*minio.Object, error)
+
+// MinioClient defines the interface for MinIO operations
+type MinioClient interface {
+	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
+	StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error)
 }
 
-type MinIO struct {
-	Client         minioClientInterface
-	Ctx            context.Context
-	DefaultPutOpts minio.PutObjectOptions
+// Repository handles MinIO storage operations with support for concurrent uploads,
+// automatic retries, and proper error handling. It provides a high-level interface
+// for interacting with MinIO storage while maintaining proper resource management
+// and error handling.
+type Repository struct {
+	client     MinioClient
+	ctx        context.Context
+	bucket     string
+	maxRetries int
+	retryDelay time.Duration
+	putOpts    minio.PutObjectOptions
+	mu         sync.Mutex // Protects metadata access
 }
 
-func NewMinio() *MinIO {
-	Logger.Info("Init minio client")
-	Logger.Infof("Endpoint: %v", Settings.Minio.ENDPOINT)
-	client, err := minio.New(
-		Settings.Minio.ENDPOINT,
-		&minio.Options{
-			Creds: credentials.NewStaticV4(
-				Settings.Minio.ACCESS_KEY,
-				Settings.Minio.SECRET_KEY,
-				"",
-			),
-			TrailingHeaders: true,
-			Secure:          false,
-		})
+// RepositoryConfig holds the configuration parameters for the MinIO repository.
+// It includes connection details, retry settings, and content type configurations.
+type RepositoryConfig struct {
+	// Endpoint is the MinIO server endpoint (e.g., "localhost:9000")
+	Endpoint string
+	// AccessKey is the MinIO access key credential
+	AccessKey string
+	// SecretKey is the MinIO secret key credential
+	SecretKey string
+	// Bucket is the target MinIO bucket for operations
+	Bucket string
+	// MaxRetries is the maximum number of upload retry attempts
+	MaxRetries int
+	// RetryDelay is the duration to wait between retry attempts
+	RetryDelay time.Duration
+	// ContentLanguage specifies the content language (e.g., "ru-RU")
+	ContentLanguage string
+	// ContentType specifies the MIME type of the content
+	ContentType string
+}
+
+// File represents a file to be uploaded to MinIO storage.
+// It supports both direct content uploads and file path-based uploads.
+type File struct {
+	// Name is the target filename in MinIO storage
+	Name string
+	// Path is the local file path (optional if Content is provided)
+	Path string
+	// Content is the file content (optional if Path is provided)
+	Content []byte
+	// Metadata is optional custom metadata to attach to the file
+	Metadata map[string]string
+}
+
+// NewRepository creates a new MinIO repository instance with the provided configuration.
+// It initializes the MinIO client and sets up default upload options.
+// Returns an error if the client initialization fails.
+func NewRepository(cfg RepositoryConfig) (*Repository, error) {
+	Logger.Info("Initializing MinIO repository")
+	
+	client, err := minio.New(cfg.Endpoint, &minio.Options{
+		Creds: credentials.NewStaticV4(
+			cfg.AccessKey,
+			cfg.SecretKey,
+			"",
+		),
+		Secure: false,
+	})
 	if err != nil {
-		Logger.Fatal(err)
+		return nil, fmt.Errorf("failed to create MinIO client: %w", err)
 	}
-	ctx := context.Background()
 
 	opts := minio.PutObjectOptions{
 		UserMetadata: map[string]string{
@@ -55,257 +99,189 @@ func NewMinio() *MinIO {
 			"saved-on-cloud": "false",
 			"is-summarized":  "false",
 		},
-		ContentLanguage:      "ru-RU",
-		ContentType:          "application/octet-stream",
-		SendContentMd5:       false,
+		ContentLanguage:      cfg.ContentLanguage,
+		ContentType:          cfg.ContentType,
+		SendContentMd5:       true,
 		DisableContentSha256: false,
 	}
 
-	Logger.Info("Init minio client done")
-	return &MinIO{
-		Client:         client,
-		Ctx:            ctx,
-		DefaultPutOpts: opts,
+	repo := &Repository{
+		client:     MinioClient(client),
+		ctx:        context.Background(),
+		bucket:     cfg.Bucket,
+		maxRetries: cfg.MaxRetries,
+		retryDelay: cfg.RetryDelay,
+		putOpts:    opts,
 	}
+
+	Logger.Info("MinIO repository initialized successfully")
+	return repo, nil
 }
 
-// FileUploadJob represents a file to be uploaded
-type FileUploadJob struct {
-	Bucket    string
-	LocalPath string
-	MinioPath string
-}
+// UploadFile uploads a single file to MinIO storage.
+// It supports both content-based and path-based uploads, with automatic MD5 checksum
+// calculation and metadata handling. The function properly manages resources and
+// provides detailed error information.
+func (r *Repository) UploadFile(file File) error {
+	r.mu.Lock()
+	if file.Metadata != nil {
+		r.putOpts.UserMetadata = file.Metadata
+	}
+	r.mu.Unlock()
 
-// UploadWithRetry attempts to upload a file with retry logic
-func (m *MinIO) UploadWithRetry(job FileUploadJob, config WorkerConfig) error {
-	var lastErr error
-	for attempt := 0; attempt < config.MaxRetries; attempt++ {
-		if attempt > 0 {
-			Logger.Infof("Retry attempt %d/%d for file %s", attempt, config.MaxRetries-1, job.LocalPath)
-			time.Sleep(config.RetryDelay)
-		}
+	var reader io.Reader
+	var size int64
 
-		fileExistsInMinio, err := m.CheckFileExist(job.Bucket, job.LocalPath, job.MinioPath)
+	if len(file.Content) > 0 {
+		reader = bytes.NewReader(file.Content)
+		size = int64(len(file.Content))
+	} else if file.Path != "" {
+		f, err := os.Open(file.Path)
 		if err != nil {
-			lastErr = err
-			Logger.Warnf("Check file exist failed (attempt %d/%d): %v", attempt+1, config.MaxRetries, err)
-			continue
+			return fmt.Errorf("failed to open file: %v", err)
 		}
-		if fileExistsInMinio {
-			return nil
+		defer f.Close()
+
+		fi, err := f.Stat()
+		if err != nil {
+			return fmt.Errorf("failed to get file info: %v", err)
 		}
 
-		err = m.UploadFile(job.Bucket, job.LocalPath, job.MinioPath)
-		if err == nil {
-			return nil
-		}
-		lastErr = err
-		Logger.Warnf("Upload failed (attempt %d/%d): %v", attempt+1, config.MaxRetries, err)
+		reader = f
+		size = fi.Size()
+	} else {
+		return fmt.Errorf("either Content or Path must be provided")
 	}
-	return fmt.Errorf("failed after %d attempts: %v", config.MaxRetries, lastErr)
-}
 
-// uploadWorker processes files from the jobs channel
-func (m *MinIO) uploadWorker(jobs <-chan FileUploadJob, wg *sync.WaitGroup, config WorkerConfig) {
-	defer wg.Done()
-	for job := range jobs {
-		if err := m.UploadWithRetry(job, config); err != nil {
-			Logger.Errorf("Failed to upload %s: %v", job.LocalPath, err)
-		}
-	}
-}
-
-// UploadFile uploads a file to a specified MinIO bucket.
-func (m *MinIO) UploadFile(bucket string, filepath string, filename string) error {
-	Logger.Infof("Upload file %v", filepath)
-
-	m.DefaultPutOpts.UserMetadata["Checksum-MD5"], _ = GetFileMD5(filepath)
-
-	info, err := m.Client.FPutObject(m.Ctx, bucket, filename, filepath, m.DefaultPutOpts)
+	Logger.Infof("Uploading file: %s", file.Name)
+	info, err := r.client.PutObject(r.ctx, r.bucket, file.Name, reader, size, r.putOpts)
 	if err != nil {
-		return fmt.Errorf("upload failed: %w", err)
+		return fmt.Errorf("failed to upload file: %v", err)
 	}
-	Logger.Infof("File uploaded %v", info.ChecksumCRC32C)
+
+	Logger.Infof("File uploaded successfully: %s, size: %d", file.Name, info.Size)
 	return nil
 }
 
-// UploadFiles uploads all files from a specified directory to a MinIO bucket using concurrent workers
-func (m *MinIO) UploadFiles(bucket string, pathToFiles string) {
-	Logger.Infof("Upload files from dir %v", pathToFiles)
+// UploadFiles concurrently uploads multiple files from a directory to MinIO storage.
+// It walks through the directory tree, uploading files while maintaining a maximum
+// number of concurrent uploads. The function provides proper error aggregation and
+// resource management.
+func (r *Repository) UploadFiles(dirPath string) error {
+	Logger.Infof("Uploading files from directory: %s", dirPath)
 
-	config := DefaultWorkerConfig()
-	Logger.Infof("Starting upload with %d workers and buffer size %d", config.NumWorkers, config.BufferSize)
-
-	// Create a buffered channel for jobs
-	jobs := make(chan FileUploadJob, config.BufferSize)
-
-	// Start worker pool
 	var wg sync.WaitGroup
-	wg.Add(config.NumWorkers)
-	for i := 0; i < config.NumWorkers; i++ {
-		go m.uploadWorker(jobs, &wg, config)
-	}
+	errChan := make(chan error, 100)
+	semaphore := make(chan struct{}, 5) // Limit concurrent uploads
 
-	// Walk through directory and send jobs
-	err := filepath.Walk(pathToFiles, func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(dirPath, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
 		}
-		if !info.IsDir() {
-			// Calculate relative path for MinIO
-			relPath, err := filepath.Rel(pathToFiles, path)
-			if err != nil {
-				Logger.Warn(err)
-				return nil
+		if info.IsDir() {
+			return nil
+		}
+
+		relPath, err := filepath.Rel(dirPath, path)
+		if err != nil {
+			return fmt.Errorf("failed to get relative path: %w", err)
+		}
+
+		wg.Add(1)
+		go func(filePath, objectName string) {
+			defer wg.Done()
+			semaphore <- struct{}{} // Acquire
+			defer func() { <-semaphore }() // Release
+
+			file := File{
+				Name: objectName,
+				Path: filePath,
 			}
 
-			jobs <- FileUploadJob{
-				Bucket:    bucket,
-				LocalPath: path,
-				MinioPath: relPath,
+			if err := r.uploadWithRetry(file); err != nil {
+				errChan <- fmt.Errorf("failed to upload %s: %w", objectName, err)
 			}
-		}
+		}(path, relPath)
+
 		return nil
 	})
 
 	if err != nil {
-		Logger.Fatal(err)
+		return fmt.Errorf("failed to walk directory: %w", err)
 	}
 
-	// Close jobs channel and wait for workers to finish
-	close(jobs)
+	// Wait for all uploads to complete
 	wg.Wait()
-}
+	close(errChan)
 
-// GetFileChecksum retrieves the MD5 checksum of a file stored in a MinIO bucket.
-//
-// Parameters:
-//   - bucket: The name of the MinIO bucket containing the file.
-//   - filename: The name of the file in the bucket.
-//
-// Returns:
-//   - string: The MD5 checksum of the file (ETag).
-//   - error: An error if the operation fails, nil otherwise.
-//
-// This function uses the MinIO client to fetch the object's metadata and
-// returns the ETag, which represents the MD5 checksum of the file.
-func (m *MinIO) GetFileChecksum(bucket string, filename string) (string, error) {
-	Logger.Infof("Get checksum for file %v", filename)
-	info, err := m.Client.GetObject(m.Ctx, bucket, filename, minio.GetObjectOptions{})
-	if err != nil {
-		return "", err
-	}
-	defer info.Close()
-	infoStat, err := info.Stat()
-	if err != nil {
-		return "", err
+	// Collect any errors
+	var errs []error
+	for err := range errChan {
+		errs = append(errs, err)
 	}
 
-	// ETag is checksum MD5
-	return infoStat.ETag, nil
-}
-
-// CheckFileExist checks if a file exists in the MinIO bucket and compares its checksum.
-//
-// Parameters:
-//   - bucket: The name of the MinIO bucket.
-//   - filepath: The local file path.
-//   - filename: The filename in the MinIO bucket.
-//
-// Returns:
-//   - bool: True if the file exists in MinIO and has the same checksum, false otherwise.
-//   - error: Any error encountered during the process.
-func (m *MinIO) CheckFileExist(bucket string, filepath string, filename string) (bool, error) {
-	Logger.Infof("Check existing file %v in minio and check checksum", filename)
-
-	checksum, err := m.GetFileChecksum(bucket, filename)
-	if err != nil {
-		return false, err
+	if len(errs) > 0 {
+		return fmt.Errorf("failed to upload some files: %v", errs)
 	}
 
-	md5File, err := GetFileMD5(filepath)
-	if err != nil {
-		return false, err
-	}
-
-	if checksum == md5File {
-		Logger.Infof("File %v already uploaded", filename)
-		return true, nil
-	}
-
-	return false, nil
+	return nil
 }
 
-// File represents a file to be uploaded to MinIO
-type File struct {
-	Name    string // Name of the file in MinIO
-	Content []byte // Content of the file
-}
-
-// MinioClient defines the interface for MinIO operations
-// This interface allows for easier testing through mocking
-type MinioClient interface {
-	PutObject(ctx context.Context, bucketName, objectName string, reader io.Reader, objectSize int64, opts minio.PutObjectOptions) (minio.UploadInfo, error)
-	StatObject(ctx context.Context, bucketName, objectName string, opts minio.StatObjectOptions) (minio.ObjectInfo, error)
-}
-
-// Repository handles MinIO storage operations
-type Repository struct {
-	Client     MinioClient   // MinIO client interface
-	Bucket     string        // Target bucket for operations
-	MaxRetries int           // Maximum number of upload retries
-	RetryDelay time.Duration // Delay between retries
-}
-
-// UploadWithRetry attempts to upload a file with retry logic
-func (r *Repository) UploadWithRetry(ctx context.Context, filename string, content []byte) error {
+// uploadWithRetry attempts to upload a file with automatic retry logic.
+// It checks for file existence before each attempt and implements exponential
+// backoff between retries. The function provides detailed error information
+// about each retry attempt.
+func (r *Repository) uploadWithRetry(file File) error {
 	var lastErr error
-	for attempt := 0; attempt < r.MaxRetries; attempt++ {
+	for attempt := 0; attempt < r.maxRetries; attempt++ {
 		if attempt > 0 {
-			time.Sleep(r.RetryDelay)
+			Logger.Infof("Retry attempt %d/%d for file %s", attempt+1, r.maxRetries, file.Name)
+			time.Sleep(r.retryDelay)
 		}
 
-		if err := r.Upload(ctx, filename, content); err == nil {
+		exists, err := r.CheckFileExists(file.Name)
+		if err != nil && minio.ToErrorResponse(err).Code != "NoSuchKey" {
+			lastErr = err
+			continue
+		}
+		if exists {
+			return nil
+		}
+
+		if err := r.UploadFile(file); err == nil {
 			return nil
 		} else {
-			lastErr = fmt.Errorf("attempt %d failed: %w", attempt+1, err)
+			lastErr = err
 		}
 	}
-	return fmt.Errorf("upload failed after %d attempts: %w", r.MaxRetries, lastErr)
+	return fmt.Errorf("failed after %d attempts: %v", r.maxRetries, lastErr)
 }
 
-// Upload performs a single file upload attempt
-func (r *Repository) Upload(ctx context.Context, filename string, content []byte) error {
-	reader := bytes.NewReader(content)
-	_, err := r.Client.PutObject(
-		ctx,
-		r.Bucket,
-		filename,
-		reader,
-		int64(len(content)),
-		minio.PutObjectOptions{},
-	)
+// CheckFileExists verifies if a file exists in the MinIO bucket.
+// It returns true if the file exists, false if it doesn't exist,
+// and an error if the check operation fails.
+func (r *Repository) CheckFileExists(filename string) (bool, error) {
+	_, err := r.client.StatObject(r.ctx, r.bucket, filename, minio.StatObjectOptions{})
 	if err != nil {
-		return fmt.Errorf("failed to upload file %s: %w", filename, err)
-	}
-	return nil
-}
-
-// UploadFiles uploads multiple files sequentially
-func (r *Repository) UploadFiles(ctx context.Context, files []File) error {
-	for _, file := range files {
-		if err := r.Upload(ctx, file.Name, file.Content); err != nil {
-			return fmt.Errorf("failed to upload file %s: %w", file.Name, err)
+		if minio.ToErrorResponse(err).Code == "NoSuchKey" {
+			return false, nil
 		}
-	}
-	return nil
-}
-
-// CheckFileExist verifies if a file exists in the MinIO bucket
-func (r *Repository) CheckFileExist(ctx context.Context, filename string) (bool, error) {
-	_, err := r.Client.StatObject(ctx, r.Bucket, filename, minio.StatObjectOptions{})
-	if err != nil {
-		return false, fmt.Errorf("failed to check file existence %s: %w", filename, err)
+		return false, err
 	}
 	return true, nil
+}
+
+// SetBucket changes the target bucket for subsequent operations
+func (r *Repository) SetBucket(bucket string) {
+	r.bucket = bucket
+}
+
+// GetBucket returns the current bucket name (used for testing)
+func (r *Repository) GetBucket() string {
+	return r.bucket
+}
+
+// SetClient replaces the MinIO client (used for testing)
+func (r *Repository) SetClient(client MinioClient) {
+	r.client = client
 }

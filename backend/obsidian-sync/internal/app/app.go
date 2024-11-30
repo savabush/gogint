@@ -1,3 +1,7 @@
+// Package app implements the main application logic for Obsidian-Sync.
+// It handles the synchronization between a Git repository containing Obsidian notes
+// and MinIO storage, managing the entire process from cloning the repository to
+// uploading files to appropriate MinIO buckets.
 package app
 
 import (
@@ -12,28 +16,40 @@ import (
 	. "github.com/savabush/obsidian-sync/internal/services"
 )
 
-// App is the main function of the obsidian-sync application.
+// App is the main function of the Obsidian-Sync application.
 // It performs the following steps:
-// 1. Initializes a MinIO client
-// 2. Sets up SSH authentication for Git
-// 3. Clones the Obsidian repository
-// 4. Removes unnecessary directories
-// 5. Uploads files to MinIO buckets based on directory structure
+//  1. Initializes a MinIO repository with proper configuration
+//  2. Sets up SSH authentication for Git operations
+//  3. Clones the Obsidian repository from the configured Git URL
+//  4. Processes the cloned repository's directory structure
+//  5. Uploads relevant files to MinIO storage
 //
-// The function uses various helper functions and services defined elsewhere
-// in the application, such as NewMinio(), RemoveObsidianDirIfExists(),
-// and RemoveUselessDirs().
-//
-// It also handles logging and error management throughout the process.
+// The function uses environment variables for configuration (see .env file)
+// and implements proper error handling and logging throughout the process.
+// It also measures and logs the total execution time.
 func App() {
 	start := time.Now()
 
-	// TODO: Rewrite creating instance of minio to from Repository
-	minioClient := NewMinio()
+	// Initialize MinIO repository with configuration
+	minioConfig := RepositoryConfig{
+		Endpoint:        Settings.Minio.ENDPOINT,
+		AccessKey:       Settings.Minio.ACCESS_KEY,
+		SecretKey:       Settings.Minio.SECRET_KEY,
+		MaxRetries:      3,
+		RetryDelay:      time.Second * 2,
+		ContentLanguage: "ru-RU",
+		ContentType:     "application/octet-stream",
+	}
+
+	minioRepo, err := NewRepository(minioConfig)
+	if err != nil {
+		Logger.Fatalf("Failed to initialize MinIO repository: %v", err)
+	}
+
 	Logger.Infof("Starting obsidian-sync. Time start: %v", start)
 
 	Logger.Info("Getting auth method SSH agent")
-	_, err := os.Stat(Settings.GIT.CERT_PATH)
+	_, err = os.Stat(Settings.GIT.CERT_PATH)
 	if err != nil {
 		Logger.Fatal(err)
 	}
@@ -87,14 +103,17 @@ func App() {
 	}
 	for _, entry := range entries {
 		if entry.IsDir() {
-			var bucketName string
-			if strings.ContainsAny(entry.Name(), " - ") {
-				bucketName = strings.ToLower(strings.Split(entry.Name(), " - ")[1])
-			}
-
 			switch entry.Name() {
 			case Articles, Blog:
-				minioClient.UploadFiles(bucketName, "obsidian/"+entry.Name())
+				// Extract bucket name from directory name
+				bucketName := strings.ToLower(strings.Split(entry.Name(), " - ")[1])
+
+				// Set the bucket for this upload operation
+				minioRepo.SetBucket(bucketName)
+
+				if err := minioRepo.UploadFiles("obsidian/" + entry.Name()); err != nil {
+					Logger.Fatalf("Failed to upload files from %s: %v", entry.Name(), err)
+				}
 			}
 		}
 	}
