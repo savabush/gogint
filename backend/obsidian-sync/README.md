@@ -91,24 +91,6 @@ The project uses GitHub Actions for continuous integration and deployment. The f
 - Enforces code style and best practices
 - 5-minute timeout for large codebases
 
-### Security Scanning
-- **Trigger**: On push/PR to main, weekly cron
-- Runs Gosec for security vulnerabilities
-- Scans dependencies with Nancy
-- Checks for high-severity issues with Snyk
-
-### Release
-- **Trigger**: On version tags (v*)
-- Uses GoReleaser for binary creation
-- Creates GitHub releases
-- Uploads build artifacts
-
-### Docker
-- **Trigger**: On push/PR to main, version tags
-- Builds multi-arch images (amd64, arm64)
-- Pushes to GitHub Container Registry
-- Tags images based on git refs
-
 ## Development
 
 1. Clone the repository
