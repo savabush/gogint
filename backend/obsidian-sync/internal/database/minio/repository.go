@@ -74,6 +74,11 @@ type File struct {
 	Metadata map[string]string
 }
 
+// For testing
+var (
+	NewRepositoryFunc = NewRepository
+)
+
 // NewRepository creates a new MinIO repository instance with the provided configuration.
 // It initializes the MinIO client and sets up default upload options.
 // Returns an error if the client initialization fails.
