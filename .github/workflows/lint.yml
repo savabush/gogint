@@ -19,7 +19,7 @@ jobs:
           go-version: "1.22.3"
           cache: false
 
-      - name: golangci-lint obsydian-sync
+      - name: golangci-lint obsidian-sync
         uses: golangci/golangci-lint-action@v6
         with:
           working-directory: ./backend/obsidian-sync
