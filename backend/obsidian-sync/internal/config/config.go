@@ -54,12 +54,17 @@ func InitConfig() Config {
 		}
 	} else {
 		// Regular environment loading
-		if _, err := os.Stat(".env"); err != nil {
-			if os.IsNotExist(err) {
-				err = godotenv.Load()
+		if _, err := os.Stat(".env"); err == nil {
+			if err := godotenv.Load(".env"); err != nil {
+				panic(err)
 			}
-		} else {
-			err = godotenv.Load(".env")
+		} else if !os.IsNotExist(err) {
+			panic(err)
+		} else if err := godotenv.Load(); err != nil {
+			// Ignore error if .env doesn't exist
+			if !os.IsNotExist(err) {
+				panic(err)
+			}
 		}
 	}
 
